@@ -1,0 +1,86 @@
+  - Sid: StateMachineActions
+    Action:
+      - states:StartExecution
+      - states:DescribeExecution
+      - states:ListExecutions
+    Effect: Allow
+    Resource:
+      - !Join [':', ['arn:aws:states', !Ref AWS::Region, !Ref AWS::AccountId, 'stateMachine', !Join ['-', [!Ref STEPFUNCTION, !Select [2, !Split ['-', !Ref AWS::StackName]]]]]]
+      - !Join [':', ['arn:aws:states', !Ref AWS::Region, !Ref AWS::AccountId, 'execution', !Join ['-', [!Ref STEPFUNCTION, !Select [2, !Split ['-', !Ref AWS::StackName]]]], '*']]
+  - Sid: S3Actions
+    Action:
+      - s3:List*
+      - s3:Get*
+      - s3:PutObject*
+    Effect: Allow
+    Resource:
+      - !Join ['', ['arn:aws:s3:::ppluk-', !Ref FILESTORE, '-', !Select [2, !Split ['-', !Ref AWS::StackName]]]]
+      - !Join ['', ['arn:aws:s3:::ppluk-', !Ref FILESTORE, '-', !Select [2, !Split ['-', !Ref AWS::StackName]], '/*']]
+  - Sid: SqsActions
+    Action:
+      - sqs:ChangeMessageVisibility
+      - sqs:DeleteMessage
+      - sqs:GetQueueAttributes
+      - sqs:GetQueueUrl
+      - sqs:ListDeadLetterSourceQueues
+      - sqs:ListQueues
+      - sqs:ListQueueTags
+      - sqs:ReceiveMessage
+      - sqs:SendMessage
+      - sqs:SetQueueAttributes
+    Effect: Allow
+    Resource:
+      - !GetAtt Queue.Arn
+
+
+
+StepFunctionRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: !Ref AWS::StackName
+    AssumeRolePolicyDocument:
+      Statement:
+      - Action:
+        - sts:AssumeRole
+        Effect: Allow
+        Principal:
+          Service:
+          - !Sub states.${AWS::Region}.amazonaws.com
+    Path: /
+    Policies:
+      - PolicyName: !Join ['-', [!Ref AWS::StackName, 'states']]
+        PolicyDocument:
+          Statement:
+          - Sid: LambdaActions
+            Action:
+              - lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              - '*'
+          - Sid: SnsActions
+            Action:
+              - sns:Publish
+            Effect: Allow
+            Resource:
+              - !Join [':', ['arn:aws:sns', !Ref AWS::Region, !Ref AWS::AccountId, !Join ['-', [!Ref TOPIC, !Select [2, !Split ['-', !Ref AWS::StackName]]]]]]
+              - !Ref SnsTopic
+          - Sid: SqsActions
+            Action:
+              - sqs:ChangeMessageVisibility
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+              - sqs:ListDeadLetterSourceQueues
+              - sqs:ListQueueTags
+              - sqs:ListQueues
+              - sqs:ReceiveMessage
+              - sqs:SendMessage
+              - sqs:SetQueueAttributes
+            Effect: Allow
+            Resource: !GetAtt ErrorQueue.Arn
+          - Sid: CloudWatchActions
+            Effect: Allow
+            Action:
+              - logs:*
+            Resource:
+              - '*'
